@@ -1,0 +1,14 @@
+{
+  "name": "cellcom-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "בוט וואטסאפ לקבלת טוקן סלקום",
+  "main": "whatsapp_bot.js",
+  "scripts": {
+    "start": "node whatsapp_bot.js"
+  },
+  "dependencies": {
+    "whatsapp-web.js": "^1.26.0",
+    "qrcode-terminal": "^0.12.0",
+    "axios": "^1.7.0"
+  }
+}
