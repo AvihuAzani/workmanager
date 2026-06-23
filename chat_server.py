@@ -1960,30 +1960,65 @@ async function attemptLogin(phone, emp, silent){
   errEl.textContent='';
   if(!silent){btn.disabled=true;btn.textContent='מתחבר...';}
   try{
-    // שלח טוקן שמור (אם יש) — השרת יאמת אותו
+    // אם יש טוקן שמור — נסה אותו ישירות מול השרת
     const savedToken=localStorage.getItem('cc_token')||'';
-    const r=await apiFetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({phone,employee_id:emp,token:savedToken})});
-    const d=await r.json();
-    if(d.status==='ok'){
-      // שמור טוקן שהשרת החזיר
-      if(d.token) saveAuthLocally(d.token, d.phone||phone);
-      const sd=await apiFetch('/api/status').then(r=>r.json());
-      _isAdmin=sd.is_admin||false; _userName=sd.user_name||'';
-      if(sd.permissions) _userPerms=Object.assign({},_userPerms,sd.permissions);
-      if(_isAdmin) showAdminTab();
-      applyPermissions();
-      const handled=await handleSubStatus(sd.sub_status);
-      if(!handled){showScreen('chat');initChat();}
-    } else if(d.status==='otp'){
-      showScreen('otp');
-      setTimeout(()=>document.getElementById('otp-inp').focus(),100);
-    } else {
-      errEl.textContent=d.message||'שגיאה';
-      showScreen('login');
+    if(savedToken){
+      const r=await apiFetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({phone,employee_id:emp,token:savedToken})});
+      const d=await r.json();
+      if(d.status==='ok'){
+        if(d.token) saveAuthLocally(d.token, d.phone||phone);
+        const sd=await apiFetch('/api/status').then(r=>r.json());
+        _isAdmin=sd.is_admin||false; _userName=sd.user_name||'';
+        if(sd.permissions) _userPerms=Object.assign({},_userPerms,sd.permissions);
+        if(_isAdmin) showAdminTab();
+        applyPermissions();
+        const handled=await handleSubStatus(sd.sub_status);
+        if(!handled){showScreen('chat');initChat();}
+        if(!silent){btn.disabled=false;btn.textContent='כניסה';}
+        return;
+      }
     }
+    // אין טוקן תקין — שלח SMS ישירות לסלקום מהדפדפן
+    const CELLCOM_HEADERS={
+      'Accept':'application/json, text/plain, */*',
+      'Accept-Language':'he-IL,he;q=0.9',
+      'Content-Type':'application/json',
+      'format':'application/json',
+      'phonedeviceid':'FF210C6E-5313-4961-846D-229DF3FAC0FC',
+      'devicemodel':'ios_Apple_iPhone 16_SysVer_26.3.1_appVer_23.03.26.1P',
+      'User-Agent':'HomeTechAppClient/23.03.26 CFNetwork/3860.400.51 Darwin/25.3.0'
+    };
+    const smsResp=await fetch('https://tech-api.cellcom.co.il/api/technician/loginStep1',{
+      method:'POST',
+      headers:CELLCOM_HEADERS,
+      body:JSON.stringify({
+        'DeviceModel':'ios_Apple_iPhone 16_SysVer_26.3.1_appVer_23.03.26.1P',
+        'PhoneNumber':phone,
+        'EmployeeId':emp,
+        'ClientId':'354193a2-8d29-11ea-bc55-0242ac130004',
+        'LoginType':'EMPLOYEEPHONE',
+        'Scope':'USERNAME',
+        'SId':'ios_Apple_iPhone 16_SysVer_26.3.1',
+        'PhoneDeviceId':'FF210C6E-5313-4961-846D-229DF3FAC0FC'
+      })
+    });
+    const smsData=await smsResp.json();
+    const body=smsData.Body||{};
+    if(!body.isSuccess){
+      errEl.textContent=body.message||'שגיאה בשליחת SMS';
+      showScreen('login');
+      if(!silent){btn.disabled=false;btn.textContent='כניסה';}
+      return;
+    }
+    // שמור ticket_id ב-sessionStorage
+    sessionStorage.setItem('cc_ticket',body.ticketId);
+    sessionStorage.setItem('cc_phone_tmp',phone);
+    sessionStorage.setItem('cc_emp_tmp',emp);
+    showScreen('otp');
+    setTimeout(()=>document.getElementById('otp-inp').focus(),100);
   }catch(e){
-    errEl.textContent='שגיאת רשת';
+    errEl.textContent='שגיאת רשת: '+e.message;
     showScreen('login');
   }
   if(!silent){btn.disabled=false;btn.textContent='כניסה';}
@@ -2078,11 +2113,45 @@ async function doVerify(){
   if(!otp){errEl.textContent='הכנס קוד';return;}
   btn.disabled=true;btn.textContent='מאמת...';
   try{
-    const r=await apiFetch('/api/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({otp})});
+    const ticketId=sessionStorage.getItem('cc_ticket')||'';
+    const phone=sessionStorage.getItem('cc_phone_tmp')||localStorage.getItem('cc_phone')||'';
+    const emp=sessionStorage.getItem('cc_emp_tmp')||localStorage.getItem('cc_emp')||'';
+    // אמת OTP ישירות מול סלקום
+    const CELLCOM_HEADERS={
+      'Accept':'application/json, text/plain, */*',
+      'Accept-Language':'he-IL,he;q=0.9',
+      'Content-Type':'application/json',
+      'format':'application/json',
+      'phonedeviceid':'FF210C6E-5313-4961-846D-229DF3FAC0FC',
+      'devicemodel':'ios_Apple_iPhone 16_SysVer_26.3.1_appVer_23.03.26.1P',
+      'User-Agent':'HomeTechAppClient/23.03.26 CFNetwork/3860.400.51 Darwin/25.3.0'
+    };
+    const verResp=await fetch('https://tech-api.cellcom.co.il/api/technician/loginStep2',{
+      method:'POST',
+      headers:CELLCOM_HEADERS,
+      body:JSON.stringify({
+        'PhoneNumber':phone,'EmployeeId':emp,
+        'ClientId':'354193a2-8d29-11ea-bc55-0242ac130004','ClientSecret':'354193a2-8d29-11ea-bc55-0242ac130003',
+        'LoginType':'EMPLOYEEPHONE','Scope':'USERNAME',
+        'SId':'ios_Apple_iPhone 16_SysVer_26.3.1',
+        'OtpCode':otp,'OtpGuid':ticketId,'PhoneDeviceId':'FF210C6E-5313-4961-846D-229DF3FAC0FC'
+      })
+    });
+    const verData=await verResp.json();
+    const rc=(verData.Header||{}).ReturnCode;
+    if(rc!=='0'){
+      errEl.textContent=(verData.Header||{}).ReturnCodeMessage||'קוד שגוי';
+      btn.disabled=false;btn.textContent='אמת קוד';
+      return;
+    }
+    const token=verData.Body.access_token;
+    // שלח טוקן לשרת כדי לרשום את המשתמש
+    const r=await apiFetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone,employee_id:emp,token})});
     const d=await r.json();
     if(d.status==='ok'){
       // שמור טוקן ב-localStorage
-      if(d.token) saveAuthLocally(d.token, d.phone||localStorage.getItem('cc_phone'));
+      if(d.token) saveAuthLocally(d.token, d.phone||phone);
       document.getElementById('otp-inp').value='';
       const sd=await apiFetch('/api/status').then(r=>r.json());
       _isAdmin=sd.is_admin||false; _userName=sd.user_name||'';
