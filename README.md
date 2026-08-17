@@ -1,48 +1,44 @@
-# WorkManager — מערכת ניהול עבודה לטכנאי סלקום
+# WorkManager — Field Technician Management System
 
-אפליקציית Web מלאה לטכנאי סלקום — שרת Flask שרץ ב-HomeAssistant Docker.
+A full-featured web app for Cellcom field technicians — Flask server running on Armbian Linux, accessible remotely via ngrok.
 
-## תכונות
+## Features
 
-| טאב | תיאור |
-|-----|-------|
-| 📋 פקעות | בנק משימות בזמן אמת, מיון לפי מיקום, הצגה על מפה |
-| 🏭 מחסן | ניהול מלאי ציוד, החזרות עם תמונות, דוח ציוד |
-| 📊 דוחות | היסטוריית ביקורים, חישוב הכנסות PPC/LSB/חריגה, ייצוא Excel |
-| 💰 מחירון | הגדרת מחיר לכל סוג משימה |
-| 🛡️ מנהל | ניהול משתמשים, הרשאות עם תוקף |
+| Tab | Description |
+|-----|-------------|
+| 📋 Tasks | Real-time task bank, sorted by location, displayed on a map |
+| 🏭 Warehouse | Equipment inventory management, returns with photos, stock report |
+| 📊 Reports | Visit history, PPC/LSB/overtime income calculation, Excel export |
+| 💰 Pricing | Set price per task type |
+| 🛡️ Admin | User management, time-limited permissions |
 
-## הרצה מקומית
+## Local Setup
 
 ```bash
 pip install flask requests openpyxl
 python chat_server.py
-# או עם Cloudflare Tunnel:
-python run_local.py
 ```
 
-## הרצה ב-HomeAssistant Docker
+## Production Setup (Armbian + ngrok)
 
 ```bash
-scp chat_server.py root@<HA_IP>:/usr/share/hassio/homeassistant/cellcom/chat_server.py
-ssh root@<HA_IP> "docker exec -d homeassistant bash -c 'pip3 install flask requests openpyxl -q && cd /config/cellcom && python3 chat_server.py > /config/cellcom/flask.log 2>&1'"
+cd /config/cellcom
+nohup python3 chat_server.py > /config/cellcom/flask.log 2>&1 &
+nohup ngrok http 5050 > /root/ngrok.log 2>&1 &
 ```
 
-## מבנה קבצים
+Auto-startup via `/etc/rc.local`. Hourly cron watchdog restarts ngrok if it goes down.
+
+## File Structure
 
 ```
-chat_server.py          # שרת Flask ראשי + כל ה-frontend (SPA)
-cellcom_bank_pekaot_3.py # שליפת בנק פקעות עצמאית
-cellcom_history.py      # שליפת היסטוריית ביקורים ל-SQLite
-cellcom_malai.py        # שליפת מלאי ציוד
-run_local.py            # הרצה לוקאלית עם Cloudflare Tunnel
-start.sh                # הפעלה בתוך container
-Procfile                # Production (Railway/Heroku)
-requirements.txt        # תלויות Python
+chat_server.py # Main Flask server + all frontend (SPA)
+cellcom_history.py # Visit history fetcher to SQLite
+requirements.txt # Python dependencies
 ```
 
-## טכנולוגיות
+## Tech Stack
 
-- **Backend**: Python Flask, SQLite, openpyxl
-- **Frontend**: Vanilla JS, Leaflet.js (מפות), Tesseract.js (OCR)
-- **Deployment**: HomeAssistant Docker / Railway / Cloudflare Tunnel
+**Backend**: Python Flask, SQLite, openpyxl
+**Frontend**: Vanilla JS, Leaflet.js (maps), Tesseract.js (OCR)
+**Deployment**: Armbian Linux / HomeAssistant Docker / Railway
