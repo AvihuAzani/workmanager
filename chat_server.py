@@ -1242,13 +1242,12 @@ def api_login():
         conn.execute(
             "INSERT OR IGNORE INTO users (phone,name,employee_id,registered_at,trial_expires,is_admin) "
             "VALUES (?,?,?,?,?,?)",
-            (ADMIN_PHONE, "מנהל", ADMIN_EMPLOYEE_ID, date.today().isoformat(), "2099-12-31", 1)
+            (ADMIN_PHONE, "מנהל", employee_id, date.today().isoformat(), "2099-12-31", 1)
         )
         conn.commit(); conn.close()
         # שמור בסשן: phone=admin, אבל שלח SMS לטלפון האמיתי
         session["phone"] = ADMIN_PHONE
-        session["employee_id"] = ADMIN_EMPLOYEE_ID
-        session["admin_real_phone"] = ADMIN_REAL_PHONE
+        session["employee_id"] = employee_id
         try:
             ticket_id = login_step1(ADMIN_REAL_PHONE, ADMIN_EMPLOYEE_ID)
             session["ticket_id"] = ticket_id
