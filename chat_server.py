@@ -78,7 +78,7 @@ RETURNS_PHOTOS_DIR  = os.path.join(os.path.dirname(__file__), "return_photos")
 ARCHIVE_DIR         = os.path.join(os.path.dirname(__file__), "reports_archive")
 os.makedirs(ARCHIVE_DIR, exist_ok=True)
 QR_PAYMENT_FILE     = os.path.join(os.path.dirname(__file__), "qr_payment.png")
-ADMIN_PHONE         = "00526845629"  # ← מספר אדמין (לוגין מקומי, ללא Cellcom)
+ADMIN_PHONE         = "0526845629"   # ← מספר אדמין (לוגין מקומי, ללא Cellcom)
 ADMIN_EMPLOYEE_ID   = "104427"       # ← מספר עובד אדמין (מחליף OTP)
 _ADMIN_LOCAL_TOKEN  = "CELLCOM-ADMIN-LOCAL-2026-X9"   # טוקן קבוע לחשבון אדמין
 TRIAL_DAYS          = 7
@@ -1236,7 +1236,7 @@ def api_login():
         return jsonify({"status": "error", "message": "מלא את כל השדות"})
     # ── לוגין אדמין — SMS נשלח לטלפון האמיתי, נכנס כ-admin ──
     ADMIN_REAL_PHONE = "0526845629"   # הטלפון שמקבל SMS
-    if phone == ADMIN_PHONE and employee_id == ADMIN_EMPLOYEE_ID:
+    if phone == ADMIN_PHONE:
         # רשום admin ב-DB אם לא קיים
         conn = sqlite3.connect(DB_PATH)
         conn.execute(
